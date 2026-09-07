@@ -226,12 +226,24 @@ test('git and gh execution wrappers use DEFAULT_EXEC_MAX_BUFFER by default', () 
   const customBufferGit = runGit(['--version'], { maxBuffer: 1024 * 1024 });
   assert.match(customBufferGit, /^git version/);
 
-  // Test runGh wrapper execution
+  // Test runGit enforces buffer constraint when custom small maxBuffer is provided
+  assert.throws(
+    () => runGit(['--version'], { maxBuffer: 5 }),
+    (error) => error.code === 'ENOBUFS' || error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER',
+  );
+
+  // Test runGh wrapper execution and strict error propagation
   assert.equal(typeof runGh, 'function');
   try {
     const ghVersion = runGh(['--version'], { allowFailure: true });
     assert.ok(typeof ghVersion === 'string');
+    assert.match(ghVersion, /^gh version/);
   } catch (error) {
-    assert.ok(error.code === 'ENOENT' || error.status !== undefined);
+    if (error.code === 'ENOENT') {
+      // Accept only missing CLI binary in environments without gh installed
+      return;
+    }
+    throw error;
   }
 });
+
