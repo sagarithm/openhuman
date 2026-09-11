@@ -222,7 +222,7 @@ test('deterministic notes omit new contributors section when there are none', ()
   assert.doesNotMatch(markdown, /## New Contributors/);
 });
 
-test('git and gh execution wrappers use DEFAULT_EXEC_MAX_BUFFER by default', () => {
+test('git and gh execution wrappers use DEFAULT_EXEC_MAX_BUFFER by default', (t) => {
   assert.ok(DEFAULT_EXEC_MAX_BUFFER >= 64 * 1024 * 1024);
 
   // Test runGit wrapper default execution and output trimming
@@ -239,12 +239,51 @@ test('git and gh execution wrappers use DEFAULT_EXEC_MAX_BUFFER by default', () 
     (error) => error.code === 'ENOBUFS' || error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER',
   );
 
+  // Everything above stays green if the wrapper simply stops forwarding the
+  // default, so prove the default is applied: a command whose output exceeds
+  // Node's own 1 MiB spawn default must succeed when no maxBuffer is passed.
+  // That is exactly the ENOBUFS wiring the v0.63.21 release failed on.
+  const repo = mkdtempSync(join(tmpdir(), 'release-notes-buffer-'));
+  t.after(() => rmSync(repo, { recursive: true, force: true }));
+
+  // Ignore the ambient git config for the same reason the range fixture does —
+  // a global `commit.gpgsign` / `tag.gpgSign` would make the fixture fail.
+  const git = (...args) =>
+    execFileSync('git', args, {
+      cwd: repo,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' },
+    });
+
+  git('init', '--quiet', '--initial-branch', 'main');
+  git('config', 'user.name', 'Buffer Fixture');
+  git('config', 'user.email', 'buffer@example.test');
+  git('config', 'commit.gpgsign', 'false');
+  git('config', 'tag.gpgSign', 'false');
+
+  const BLOB_BYTES = 2 * 1024 * 1024;
+  writeFileSync(join(repo, 'padded.txt'), 'x'.repeat(BLOB_BYTES));
+  git('add', 'padded.txt');
+  git('commit', '--quiet', '-m', 'padded blob');
+
+  const blob = runGit(['-C', repo, 'show', 'HEAD:padded.txt']);
+  assert.equal(blob.length, BLOB_BYTES, `expected the full ${BLOB_BYTES}-byte blob back`);
+
   // Test runGh wrapper execution and strict error propagation
   assert.equal(typeof runGh, 'function');
   try {
     const ghVersion = runGh(['--version'], { allowFailure: true });
     assert.ok(typeof ghVersion === 'string');
     assert.match(ghVersion, /^gh version/);
+
+    // No gh subcommand emits bulk output offline, so the wrapper's plumbing is
+    // pinned with an explicit cap instead: an enforced 5-byte cap must trip the
+    // same ENOBUFS the default exists to avoid.
+    assert.throws(
+      () => runGh(['--version'], { maxBuffer: 5, allowFailure: true }),
+      (error) => error.code === 'ENOBUFS' || error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER',
+    );
   } catch (error) {
     if (error.code === 'ENOENT') {
       // Accept only missing CLI binary in environments without gh installed
