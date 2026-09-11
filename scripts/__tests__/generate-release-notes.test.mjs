@@ -285,11 +285,9 @@ test('git and gh execution wrappers use DEFAULT_EXEC_MAX_BUFFER by default', (t)
       (error) => error.code === 'ENOBUFS' || error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER',
     );
   } catch (error) {
-    if (error.code === 'ENOENT') {
-      // Accept only missing CLI binary in environments without gh installed
-      return;
-    }
-    throw error;
+    // Accept only environments without the gh binary; status-bearing failures
+    // must remain visible so the wrapper test cannot hide unrelated regressions.
+    if (error.code !== 'ENOENT') throw error;
   }
 });
 
