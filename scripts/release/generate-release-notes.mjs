@@ -98,8 +98,8 @@ export const DEFAULT_EXEC_MAX_BUFFER = 64 * 1024 * 1024;
  * @param {{ allowFailure?: boolean, maxBuffer?: number }} [options={}] - Execution options.
  * @returns {string} Trimmed standard output.
  */
-export function runGit(args, options = {}) {
-  return execFileSync('git', args, {
+export function runGit(args, options = {}, execute = execFileSync) {
+  return execute('git', args, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', options.allowFailure ? 'pipe' : 'inherit'],
     maxBuffer: options.maxBuffer ?? DEFAULT_EXEC_MAX_BUFFER,
@@ -112,8 +112,8 @@ export function runGit(args, options = {}) {
  * @param {{ allowFailure?: boolean, maxBuffer?: number }} [options={}] - Execution options.
  * @returns {string} Trimmed standard output.
  */
-export function runGh(args, options = {}) {
-  return execFileSync('gh', args, {
+export function runGh(args, options = {}, execute = execFileSync) {
+  return execute('gh', args, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', options.allowFailure ? 'pipe' : 'inherit'],
     maxBuffer: options.maxBuffer ?? DEFAULT_EXEC_MAX_BUFFER,

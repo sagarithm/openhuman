@@ -222,6 +222,24 @@ test('deterministic notes omit new contributors section when there are none', ()
   assert.doesNotMatch(markdown, /## New Contributors/);
 });
 
+test('git and gh wrappers forward the default execution buffer', () => {
+  const calls = [];
+  const execute = (command, args, options) => {
+    calls.push({ command, args, options });
+    return ' controlled output\n';
+  };
+
+  assert.equal(runGit(['log'], {}, execute), 'controlled output');
+  assert.equal(runGh(['pr', 'list'], {}, execute), 'controlled output');
+  assert.deepEqual(
+    calls.map(({ command, options }) => ({ command, maxBuffer: options.maxBuffer })),
+    [
+      { command: 'git', maxBuffer: DEFAULT_EXEC_MAX_BUFFER },
+      { command: 'gh', maxBuffer: DEFAULT_EXEC_MAX_BUFFER },
+    ],
+  );
+});
+
 test('git and gh execution wrappers use DEFAULT_EXEC_MAX_BUFFER by default', (t) => {
   assert.ok(DEFAULT_EXEC_MAX_BUFFER >= 64 * 1024 * 1024);
 
