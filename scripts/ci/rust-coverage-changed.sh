@@ -248,16 +248,24 @@ run_full() {
   # Run each module in its own process so the isolation contract is preserved
   # while every invocation still contributes profraw data to the final report.
   log "discovering libtest modules for isolated full-suite runs"
-  while IFS= read -r module; do
-    [ -n "${module}" ] || continue
-    log "running full-suite lib module: ${module}"
-    llvm_cov --no-report --no-fail-fast -p openhuman --lib -- "${module}::" --test-threads=1
-  done < <(
+  local modules
+  if modules="$(
     bash scripts/ci-cancel-aware.sh cargo test \
       --features "${PRODUCT_FEATURES}" -p openhuman --lib -- --list |
       sed -n 's/^\([^:[:space:]]*::[^:[:space:]]*\).*$/\1/p' |
       sort -u
-  )
+  )"; then
+    :
+  else
+    local discovery_rc=$?
+    log "libtest module discovery failed with status ${discovery_rc}"
+    return "${discovery_rc}"
+  fi
+  while IFS= read -r module; do
+    [ -n "${module}" ] || continue
+    log "running full-suite lib module: ${module}"
+    llvm_cov --no-report --no-fail-fast -p openhuman --lib -- "${module}::" --test-threads=1
+  done <<< "${modules}"
   llvm_cov --no-report --no-fail-fast -p openhuman --bins -- --test-threads=1
   while IFS= read -r target; do
     [ -n "${target}" ] || continue
