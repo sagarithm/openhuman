@@ -242,12 +242,8 @@ compile_raw_coverage_target() {
 run_full() {
   log "running FULL instrumented suite (reason: $1)"
   llvm_cov clean --workspace
-  # Full coverage exercises tests that intentionally share process-global
-  # configuration and registries. Keep those tests isolated from one another;
-  # parallel libtest execution lets one test's scoped setup leak into another
-  # and produces failures in otherwise unrelated domains.
-  llvm_cov --no-report --no-fail-fast -p openhuman --lib -- --test-threads=1
-  llvm_cov --no-report --no-fail-fast -p openhuman --bins -- --test-threads=1
+  llvm_cov --no-report --no-fail-fast -p openhuman --lib
+  llvm_cov --no-report --no-fail-fast -p openhuman --bins
   while IFS= read -r target; do
     [ -n "${target}" ] || continue
     log "running full-suite integration target: ${target}"
