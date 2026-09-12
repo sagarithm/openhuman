@@ -1047,10 +1047,10 @@ async fn subagent_delegation_happy_path_inner() {
 //   request[3] = orchestrator turn 2 with "version 2" user reply in full context →
 //                synthesis; turn 2 ends (chat_done with ANSWER_CANARY_V2)
 
-/// Orchestrator delegates to scheduler_agent via `schedule_task` (delegate_name);
-/// scheduler_agent's ask_user_clarification call is blocked (not in parent's tool
+/// Orchestrator delegates to researcher via `research` (delegate_name);
+/// researcher's ask_user_clarification call is blocked (not in parent's tool
 /// registry) so the subagent loops and returns the question as text instead;
-/// dispatch_subagent forwards this as the schedule_task tool result; the orchestrator
+/// dispatch_subagent forwards this as the research tool result; the orchestrator
 /// surfaces the question (turn 1 ends with WHICH_VERSION_CANARY); the user replies
 /// "version 2"; the orchestrator synthesizes the final answer with full turn-1 context
 /// present (turn 2 ends with ANSWER_CANARY_V2).
@@ -1071,21 +1071,21 @@ async fn subagent_clarification_flow_inner() {
     let _lock = env_lock();
     reset_script(vec![
         // ── turn 1 ──
-        // request[0]: Orchestrator calls schedule_task (scheduler_agent's delegate_name).
+        // request[0]: Orchestrator calls research (researcher's delegate_name).
         tool_call_completion(
-            "schedule_task",
-            json!({ "prompt": "Schedule a weekly reminder", "blocking": true }),
+            "research",
+            json!({ "prompt": "Investigate the requested version", "blocking": true }),
         ),
-        // request[1]: scheduler_agent first iter → tries ask_user_clarification.
+        // request[1]: researcher first iter → tries ask_user_clarification.
         //   ask_user_clarification is NOT in all_tools_with_runtime (tools/ops.rs), so
         //   SubagentToolSource returns success=false.  Early-exit requires success=true,
-        //   so it does NOT fire; the scheduler_agent loops back for a second LLM call.
+        //   so it does NOT fire; the researcher loops back for a second LLM call.
         tool_call_completion(
             "ask_user_clarification",
             json!({ "question": "WHICH_VERSION_CANARY?" }),
         ),
-        // request[2]: scheduler_agent second iter → text output with the clarification
-        //   question.  This becomes the schedule_task tool result forwarded to the
+        // request[2]: researcher second iter → text output with the clarification
+        //   question.  This becomes the research tool result forwarded to the
         //   orchestrator by dispatch_subagent.
         text_completion("I need clarification: WHICH_VERSION_CANARY?"),
         // ── turn 2 (user replied "version 2") ──
@@ -1143,7 +1143,6 @@ async fn subagent_clarification_flow_inner() {
         .get("full_response")
         .and_then(Value::as_str)
         .unwrap_or_else(|| panic!("turn-2 chat_done missing 'full_response': {second}"));
-    eprintln!("DEBUG requests before turn-2 assertion: {}", serde_json::to_string_pretty(&with_captured(|c| c.clone())).unwrap_or_default());
     assert!(
         second_response.contains("ANSWER_CANARY_V2"),
         "turn-2 flow did not complete with answer canary; full_response: {second_response}\nevent: {second}"
