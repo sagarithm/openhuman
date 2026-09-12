@@ -243,10 +243,21 @@ run_full() {
   log "running FULL instrumented suite (reason: $1)"
   llvm_cov clean --workspace
   # Full coverage exercises tests that intentionally share process-global
-  # configuration and registries. Keep those tests isolated from one another;
-  # parallel libtest execution lets one test's scoped setup leak into another
-  # and produces failures in otherwise unrelated domains.
-  llvm_cov --no-report --no-fail-fast -p openhuman --lib -- --test-threads=1
+  # configuration and registries. A single serial libtest process is not enough:
+  # test fixtures can leave process-global state behind for a later module.
+  # Run each module in its own process so the isolation contract is preserved
+  # while every invocation still contributes profraw data to the final report.
+  log "discovering libtest modules for isolated full-suite runs"
+  while IFS= read -r module; do
+    [ -n "${module}" ] || continue
+    log "running full-suite lib module: ${module}"
+    llvm_cov --no-report --no-fail-fast -p openhuman --lib -- "${module}::" --test-threads=1
+  done < <(
+    bash scripts/ci-cancel-aware.sh cargo test \
+      --features "${PRODUCT_FEATURES}" -p openhuman --lib -- --list |
+      sed -n 's/^\([^:[:space:]]*::[^:[:space:]]*\).*$/\1/p' |
+      sort -u
+  )
   llvm_cov --no-report --no-fail-fast -p openhuman --bins -- --test-threads=1
   while IFS= read -r target; do
     [ -n "${target}" ] || continue
