@@ -1042,10 +1042,9 @@ async fn subagent_delegation_happy_path_inner() {
 //   request[0] = orchestrator turn 1 → schedule_task delegation tool call returned
 //   request[1] = scheduler_agent first iter → tries ask_user_clarification (blocked,
 //                success=false; early-exit does NOT fire; loop continues)
-//   request[2] = scheduler_agent second iter → returns text with clarification question
-//                (this becomes the schedule_task tool result and turn-1 response)
-//   request[3] = orchestrator turn 2 with "version 2" user reply in full context →
-//                synthesis; turn 2 ends (chat_done with ANSWER_CANARY_V2)
+//   request[2] = researcher second iter → returns text with clarification question
+//   request[3] = orchestrator turn 1 synthesis, relaying that question
+//   request[4] = orchestrator turn 2 with "version 2" user reply → final answer
 
 /// Orchestrator delegates to researcher via `research` (delegate_name);
 /// researcher's ask_user_clarification call is blocked (not in parent's tool
@@ -1088,9 +1087,10 @@ async fn subagent_clarification_flow_inner() {
         //   question.  This becomes the research tool result forwarded to the
         //   orchestrator by dispatch_subagent.
         text_completion("I need clarification: WHICH_VERSION_CANARY?"),
+        // request[3]: Orchestrator relays the delegated clarification to the user.
+        text_completion("I need clarification: WHICH_VERSION_CANARY?"),
         // ── turn 2 (user replied "version 2") ──
-        // request[3]: Orchestrator processes user reply with full turn-1 context →
-        //   synthesizes final answer; turn 2 ends here.
+        // request[4]: Orchestrator processes user reply with full turn-1 context.
         text_completion("Final: ANSWER_CANARY_V2"),
     ]);
     let stack = boot_stack().await;
