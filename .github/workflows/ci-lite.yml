@@ -176,7 +176,6 @@ jobs:
               - 'vendor/**'
             # Changes here invalidate per-module test scoping → full suite.
             rust-core-full:
-              - '.github/workflows/ci-lite.yml'
               - 'scripts/ci/rust-coverage-changed.sh'
               # Same reason as in `rust-core` above: a feature-set change
               # changes what compiles, which invalidates per-module scoping
