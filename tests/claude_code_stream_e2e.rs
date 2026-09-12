@@ -69,30 +69,18 @@ fn captures_text_tool_call_and_usage() {
         .collect();
     assert_eq!(text_chunks, vec!["Hello", " world"]);
 
-    // Tool call lifecycle.
-    assert!(deltas.iter().any(|d| matches!(
+    // Native Claude Code tool calls are executed inside the CLI's own loop and
+    // must not be surfaced to OpenHuman's harness, which owns its tools via
+    // MCP. The mapper still consumes the block and its input deltas so neither
+    // half leaks into the harness stream.
+    assert!(!deltas.iter().any(|d| matches!(
         d,
-        ProviderDelta::ToolCallStart { tool_name, call_id }
-            if tool_name == "memory_search" && call_id == "call_42"
+        ProviderDelta::ToolCallStart { .. } | ProviderDelta::ToolCallArgsDelta { .. }
     )));
-    let args_concat: String = deltas
-        .iter()
-        .filter_map(|d| match d {
-            ProviderDelta::ToolCallArgsDelta { call_id, delta } if call_id == "call_42" => {
-                Some(delta.as_str())
-            }
-            _ => None,
-        })
-        .collect::<Vec<_>>()
-        .join("");
-    assert_eq!(args_concat, r#"{"query":"foo"}"#);
 
     // Aggregated response.
     assert_eq!(mapper.final_text, "Hello world");
-    assert_eq!(mapper.tool_calls.len(), 1);
-    assert_eq!(mapper.tool_calls[0].name, "memory_search");
-    assert_eq!(mapper.tool_calls[0].id, "call_42");
-    assert_eq!(mapper.tool_calls[0].arguments, r#"{"query":"foo"}"#);
+    assert!(mapper.tool_calls.is_empty());
 
     // Usage from the `result` event.
     assert!(mapper.finished);
