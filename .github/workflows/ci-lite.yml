@@ -136,8 +136,9 @@ jobs:
               - 'gitbooks/developing/architecture/frontend.md'
               - 'package.json'
             rust-core:
+              - '.github/workflows/ci-lite.yml'
               # The changed-files runner itself must trigger the lane that
-              # runs it.
+              # runs it (it is also in rust-core-full → full-suite mode).
               - 'scripts/ci/rust-coverage-changed.sh'
               # The product feature set decides what the Rust lanes below
               # actually compile (clippy's `--features`, the test suite's, and
@@ -176,6 +177,7 @@ jobs:
               - 'vendor/**'
             # Changes here invalidate per-module test scoping → full suite.
             rust-core-full:
+              - '.github/workflows/ci-lite.yml'
               - 'scripts/ci/rust-coverage-changed.sh'
               # Same reason as in `rust-core` above: a feature-set change
               # changes what compiles, which invalidates per-module scoping
